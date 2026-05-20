@@ -26,6 +26,13 @@ function Signup() {
     const handleSubmit = async (e) => {
 
         e.preventDefault();
+        if (!name || !email || !password) {
+
+            return toast.error(
+                "❌ All fields are required"
+            );
+
+        }
 
         try {
 

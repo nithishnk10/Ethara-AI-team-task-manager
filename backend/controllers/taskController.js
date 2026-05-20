@@ -70,14 +70,43 @@ const getTasks = async (req, res) => {
     }
 
 };
-const getTasksByProject = async (req, res) => {
+const getTasksByProject = async (
+    req,
+    res
+) => {
 
     try {
 
-        const tasks = await Task.find({
-            project: req.params.projectId
-        })
-        .populate("assignedTo", "name email");
+        let tasks;
+
+        // Admin sees all project tasks
+
+        if (req.user.role === "admin") {
+
+            tasks = await Task.find({
+                project: req.params.projectId
+            })
+            .populate(
+                "assignedTo",
+                "name email"
+            );
+
+        }
+
+        // Member sees ONLY assigned tasks
+
+        else {
+
+            tasks = await Task.find({
+                project: req.params.projectId,
+                assignedTo: req.user.id
+            })
+            .populate(
+                "assignedTo",
+                "name email"
+            );
+
+        }
 
         res.status(200).json(tasks);
 
@@ -97,10 +126,10 @@ const updateTaskStatus = async (req, res) => {
 
         const { status } = req.body;
 
-        // Find task first
-        const task = await Task.findById(req.params.id);
+        const task = await Task.findById(
+            req.params.id
+        );
 
-        // Restrict members
         if (
             req.user.role !== "admin" &&
             task.assignedTo.toString() !== req.user.id
@@ -112,16 +141,34 @@ const updateTaskStatus = async (req, res) => {
 
         }
 
-        // Update task
-        const updatedTask = await Task.findByIdAndUpdate(
-            req.params.id,
-            { status },
-            { new: true }
-        );
+        task.status = status;
+
+        await task.save();
 
         res.status(200).json({
             message: "Task updated successfully",
-            task: updatedTask
+            task
+        });
+
+    } catch (error) {
+
+        res.status(500).json({
+            message: error.message
+        });
+
+    }
+
+};
+const deleteTask = async (req, res) => {
+
+    try {
+
+        await Task.findByIdAndDelete(
+            req.params.id
+        );
+
+        res.status(200).json({
+            message: "Task deleted successfully"
         });
 
     } catch (error) {
@@ -138,5 +185,6 @@ module.exports = {
     createTask,
     getTasks,
     getTasksByProject,
-    updateTaskStatus
+    updateTaskStatus,
+    deleteTask
 };

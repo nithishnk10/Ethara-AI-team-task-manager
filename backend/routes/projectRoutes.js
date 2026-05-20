@@ -9,7 +9,8 @@ const {
     createProject,
     getProjects,
     addMemberToProject,
-    removeMemberFromProject
+    removeMemberFromProject,
+    deleteProject
 } = require("../controllers/projectController");
 
 router.post(
@@ -32,5 +33,12 @@ router.put(
     adminMiddleware,
     removeMemberFromProject
 );
+router.delete(
+    "/:id",
+    authMiddleware,
+    adminMiddleware,
+    deleteProject
+);
+
 
 module.exports = router;

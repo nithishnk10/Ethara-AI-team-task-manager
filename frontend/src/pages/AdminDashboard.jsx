@@ -1,7 +1,17 @@
+import { toast } from "react-toastify";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import API from "../services/api";
+import {
+    FaProjectDiagram,
+    FaChartBar,
+    FaSignOutAlt,
+    FaTasks,
+    FaCheckCircle,
+    FaExclamationTriangle,
+    FaUsers
+} from "react-icons/fa";
 
 function Dashboard() {
 
@@ -24,11 +34,28 @@ function Dashboard() {
 
     const [projectTitle, setProjectTitle] = useState("");
     const [projectForms, setProjectForms] = useState({});
+    const [loading, setLoading] =
+    useState(true);
+    const [activeProjectId, setActiveProjectId] =
+    useState(null);
+    const [selectedProject, setSelectedProject] =
+    useState(null);
+    const [selectedMembers, setSelectedMembers] =
+    useState({});
+    const [projectForm, setProjectForm] =
+        useState({
+            title: ""
+        });
+    const handleProjectChange = (e) => {
 
+        setProjectForm({
+            ...projectForm,
+            [e.target.name]: e.target.value
+        });
 
-    useEffect(() => {
+    };
 
-        const fetchDashboard = async () => {
+    const fetchDashboard = async () => {
 
             try {
 
@@ -45,7 +72,10 @@ function Dashboard() {
 
             } catch (error) {
 
-                console.log(error);
+                toast.error(
+                    error.response?.data?.message ||
+                    "Something went wrong"
+                );
 
             }
 
@@ -90,10 +120,26 @@ function Dashboard() {
                 );
 
                 setProjects(projectsWithTasks);
+                if (activeProjectId) {
+
+                    const updatedProject =
+                        projectsWithTasks.find(
+                            (project) =>
+                                project._id === activeProjectId
+                        );
+
+                    setSelectedProject(updatedProject);
+
+                }
+                setLoading(false);
 
             } catch (error) {
+                setLoading(false);
 
-                console.log(error);
+                toast.error(
+                    error.response?.data?.message ||
+                    "Something went wrong"
+                );
 
             }
 
@@ -116,11 +162,17 @@ function Dashboard() {
 
             } catch (error) {
 
-                console.log(error);
+                toast.error(
+                    error.response?.data?.message ||
+                    "Something went wrong"
+                );
 
             }
 
         };
+
+
+    useEffect(() => {
 
         fetchDashboard();
 
@@ -154,11 +206,21 @@ function Dashboard() {
             await API.post(
                 "/tasks",
                 {
-                    title: formData.title,
-                    description: formData.description,
-                    dueDate: formData.dueDate,
-                    priority: formData.priority,
-                    assignedTo: formData.assignedTo,
+                    title:
+                        formData?.title,
+
+                    description:
+                        formData?.description,
+
+                    dueDate:
+                        formData?.dueDate,
+
+                    priority:
+                        formData?.priority,
+
+                    assignedTo:
+                        formData?.assignedTo,
+
                     project: projectId
                 },
                 {
@@ -168,13 +230,48 @@ function Dashboard() {
                 }
             );
 
-            alert("Task created");
+            toast.success(
+                "Task created"
+            );
 
-            window.location.reload();
+            setProjectForms({
+
+                ...projectForms,
+
+                [projectId]: {
+
+                    title: "",
+                    description: "",
+                    dueDate: "",
+                    priority: "Low",
+                    assignedTo: ""
+
+                }
+
+            });
+
+            await fetchProjects();
+            const dashboardResponse =
+                await API.get(
+                    "/dashboard",
+                    {
+                        headers: {
+                            Authorization: token
+                        }
+                    }
+                );
+
+            setDashboardData(
+                dashboardResponse.data
+            );
+            await fetchDashboard();
 
         } catch (error) {
 
-            console.log(error);
+            toast.error(
+                error.response?.data?.message ||
+                "Failed to create task"
+            );
 
         }
 
@@ -183,12 +280,21 @@ function Dashboard() {
 
         e.preventDefault();
 
+        if (!projectForm.title.trim()) {
+
+            return toast.error(
+                "❌ Project title is required"
+            );
+
+        }
+
         try {
+            console.log(projectForm);
 
             await API.post(
                 "/projects",
                 {
-                    title: projectTitle
+                    title: projectForm.title
                 },
                 {
                     headers: {
@@ -197,23 +303,45 @@ function Dashboard() {
                 }
             );
 
-            alert("Project created");
+            toast.success("Project created");
 
-            window.location.reload();
+            await fetchProjects();
+            setProjectForm({
+                title: ""
+            });
+
+            setSelectedMembers({});
+
+            setProjectForms({});
 
         } catch (error) {
 
-            console.log(error);
+            toast.error(
+                error.response?.data?.message ||
+                "Something went wrong"
+            );
 
         }
 
     };
-    const addMember = async (projectId) => {
+    const addMember = async () => {
+        const projectId = activeProjectId;
+
+        const email =
+            selectedMembers[projectId];
+
+        if (!email) {
+
+            return toast.error(
+                "❌ Select a member"
+            );
+
+        }
 
         try {
 
             const email =
-                projectForms[projectId]?.memberEmail;
+                selectedMembers[projectId];
 
             await API.put(
                 `/projects/${projectId}/add-member`,
@@ -225,13 +353,20 @@ function Dashboard() {
                 }
             );
 
-            alert("Member added");
+            toast.success("Member added");
+            setSelectedMembers({
+                ...selectedMembers,
+                [activeProjectId]: ""
+            });
 
-            window.location.reload();
+            await fetchProjects();
 
         } catch (error) {
 
-            console.log(error);
+            toast.error(
+                error.response?.data?.message ||
+                "Something went wrong"
+            );
 
         }
 
@@ -253,483 +388,325 @@ function Dashboard() {
                 }
             );
 
-            alert("Member removed");
+            toast.success("Member removed");
 
-            window.location.reload();
+            await fetchProjects();
 
         } catch (error) {
 
-            console.log(error);
+            toast.error(
+                error.response?.data?.message ||
+                "Something went wrong"
+            );
 
         }
 
     };
-    const handleProjectFormChange = (
-        projectId,
-        field,
-        value
+const handleProjectFormChange = (
+    e,
+    projectId
+) => {
+
+    setProjectForms({
+
+        ...projectForms,
+
+        [projectId]: {
+
+            ...projectForms[projectId],
+
+            [e.target.name]:
+                e.target.value
+
+        }
+
+    });
+
+};
+    const deleteTask = async (taskId) => {
+
+        try {
+
+            await API.delete(
+                `/tasks/${taskId}`,
+                {
+                    headers: {
+                        Authorization: token
+                    }
+                }
+            );
+
+            toast.success("Task deleted");
+
+            await fetchProjects();
+            const dashboardResponse =
+                await API.get(
+                    "/dashboard",
+                    {
+                        headers: {
+                            Authorization: token
+                        }
+                    }
+                );
+
+            setDashboardData(
+                dashboardResponse.data
+            );
+            await fetchDashboard();
+
+        } catch (error) {
+
+            toast.error(
+                error.response?.data?.message ||
+                "Something went wrong"
+            );
+
+        }
+
+    };
+    const deleteProject = async (
+        projectId
     ) => {
 
-        setProjectForms((prev) => ({
+        try {
 
-            ...prev,
+            await API.delete(
+                `/projects/${projectId}`,
+                {
+                    headers: {
+                        Authorization: token
+                    }
+                }
+            );
 
-            [projectId]: {
+            toast.success("Project deleted");
 
-                ...prev[projectId],
+            await fetchProjects();
+            setSelectedMembers({});
 
-                [field]: value
+            setProjectForms({});
 
-            }
+            setSelectedProject(null);
 
-        }));
+            setActiveProjectId(null);
+
+        } catch (error) {
+
+            toast.error(
+                error.response?.data?.message ||
+                "Something went wrong"
+            );
+
+        }
+
+    };
+    const updateTaskStatus = async (
+        taskId,
+        status
+    ) => {
+
+        try {
+
+            await API.put(
+                `/tasks/${taskId}`,
+                { status },
+                {
+                    headers: {
+                        Authorization: token
+                    }
+                }
+            );
+
+            toast.success(
+                "Task Status Updated"
+            );
+
+            await fetchProjects();
+            await fetchDashboard();
+
+        } catch (error) {
+
+            toast.error(
+                error.response?.data?.message ||
+                "Failed To Update Status"
+            );
+
+        }
 
     };
 
+
+
+
     return (
 
-        <div className="min-h-screen bg-linear-to-r from-blue-100 to-indigo-100">
+        <div className="flex min-h-screen bg-gray-100">
 
-            {/* Navbar */}
+            {/* Sidebar */}
 
-            <div className="bg-blue-600 text-white p-4 flex justify-between items-center shadow-lg">
+            <div className="w-72 bg-indigo-950 text-white flex flex-col justify-between p-6 shadow-2xl">
 
-                <h1 className="text-2xl font-bold">
-                    Team Task Manager
-                </h1>
+                <div>
 
-                <div className="flex gap-4">
+                    <h1 className="text-3xl font-bold mb-12 tracking-wide">
+                        TaskFlow
+                    </h1>
 
-                    <button
-                        onClick={() =>
-                            document.getElementById("projects")
-                            .scrollIntoView({ behavior: "smooth" })
-                        }
-                        className="bg-green-500 px-4 py-2 rounded-lg"
-                    >
-                        Projects
-                    </button>
+                    <div className="space-y-5">
 
-                    <button
-                        onClick={handleLogout}
-                        className="bg-red-500 px-4 py-2 rounded-lg hover:bg-red-600"
-                    >
-                        Logout
-                    </button>
+                        <button
+                            onClick={() =>
+                                document.getElementById("dashboard")
+                                .scrollIntoView({
+                                    behavior: "smooth"
+                                })
+                            }
+                            className="flex items-center gap-3 text-lg hover:text-yellow-300 transition"
+                        >
+                            Dashboard
+                        </button>
 
+                        <button
+                            onClick={() =>
+                                document.getElementById("projects")
+                                .scrollIntoView({
+                                    behavior: "smooth"
+                                })
+                            }
+                            className="flex items-center gap-3 text-lg hover:text-yellow-300 transition"
+                        >
+                            Projects
+                        </button>
+
+                        <button
+                            onClick={handleLogout}
+                            className="flex items-center gap-3 text-lg hover:text-red-300 transition"
+                        >
+                            Logout
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <div className="text-sm text-gray-300">
+                    Team Task Manager © 2026
                 </div>
 
             </div>
 
             {/* Main Content */}
 
-            <div className="p-6">
+            <div className="flex-1 p-10 overflow-y-auto">
 
-                <div className="mb-6">
+                {/* Welcome Section */}
 
-                    <h2 className="text-3xl font-bold">
-                        Welcome {user?.name}
-                    </h2>
+                <div className="mb-10">
 
-                    <p className="text-gray-600">
-                        Role: {user?.role}
+                    <h1 className="text-5xl font-bold text-gray-800 mb-3">
+                        Welcome {user?.name} 👋
+                    </h1>
+
+                    <p className="text-gray-600 text-lg">
+                        Manage your projects and team productivity efficiently.
                     </p>
 
                 </div>
-                <div id="projects" className="mb-10">
 
-                    <div className="flex justify-between items-center mb-6">
+                {/* Dashboard Cards */}
 
-                        <h2 className="text-2xl font-bold">
-                            Projects
+                <div
+                    id="dashboard"
+                    className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10"
+                >
+
+                    <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-7 rounded-3xl shadow-xl hover:scale-105 transition duration-300">
+
+                        <p className="text-sm opacity-80">
+                            Total Tasks
+                        </p>
+
+                        <h2 className="text-5xl font-bold mt-2">
+                            {dashboardData.totalTasks}
                         </h2>
 
                     </div>
 
-                    {/* Create Project */}
+                    <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-7 rounded-3xl shadow-xl hover:scale-105 transition duration-300">
 
-                    <form
-                        onSubmit={createProject}
-                        className="bg-white p-6 rounded-2xl shadow-md mb-6 flex gap-4"
-                    >
-
-                        <input
-                            type="text"
-                            placeholder="Project Title"
-                            value={projectTitle}
-                            onChange={(e) =>
-                                setProjectTitle(e.target.value)
-                            }
-                            className="border p-3 rounded-lg flex-1"
-                        />
-
-                        <button
-                            type="submit"
-                            className="bg-blue-600 text-white px-6 rounded-lg"
-                        >
-                            Create Project
-                        </button>
-
-                    </form>
-
-                    {/* Project Cards */}
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-
-                        {projects.map((project) => (
-
-                            <div
-                                key={project._id}
-                                className="bg-white p-6 rounded-2xl shadow-md"
-                            >
-
-                                <h3 className="text-xl font-bold">
-                                    {project.title}
-                                </h3>
-
-                                <p className="text-gray-600 mt-2">
-                                    Project Management Workspace
-                                </p>
-                                <div className="mt-4">
-
-                                    <select
-                                        value={
-                                            projectForms[project._id]?.memberEmail || ""
-                                        }
-                                        onChange={(e) =>
-                                            handleProjectFormChange(
-                                                project._id,
-                                                "memberEmail",
-                                                e.target.value
-                                            )
-                                        }
-                                        className="border p-2 rounded-lg w-full mb-2"
-                                    >
-
-                                        <option value="">
-                                            Select Member
-                                        </option>
-
-                                        {users
-                                            .filter(
-                                                (user) =>
-                                                    !project.members.some(
-                                                        (member) =>
-                                                            member._id === user._id
-                                                    )
-                                            )
-                                            .map((user) => (
-
-                                                <option
-                                                    key={user._id}
-                                                    value={user.email}
-                                                >
-                                                    {user.name}
-                                                </option>
-
-                                            ))}
-
-                                    </select>
-
-                                    <button
-                                        onClick={() =>
-                                            addMember(project._id)
-                                        }
-                                        className="bg-blue-600 text-white px-4 py-2 rounded-lg w-full"
-                                    >
-                                        Add Member
-                                    </button>
-
-                                </div>
-                                <div className="mt-4">
-
-                                    <h4 className="font-bold mb-2">
-                                        Members
-                                    </h4>
-
-                                    {project.members.map((member) => (
-
-                                        <div
-                                            key={member._id}
-                                            className="flex justify-between items-center bg-gray-100 p-2 rounded-lg mb-2"
-                                        >
-
-                                            <span>
-                                                {member.name}
-                                            </span>
-
-                                            <button
-                                                onClick={() =>
-                                                    removeMember(
-                                                        project._id,
-                                                        member._id
-                                                    )
-                                                }
-                                                className="bg-red-500 text-white px-3 py-1 rounded-lg"
-                                            >
-                                                Remove
-                                            </button>
-
-                                        </div>
-
-                                    ))}
-
-                                </div>
-                                <div className="mt-6">
-
-                                    <h3 className="text-lg font-bold mb-3">
-                                        Create Task
-                                    </h3>
-
-                                    <form
-                                        onSubmit={(e) =>
-                                            createTask(e, project._id)
-                                        }
-                                        className="space-y-3"
-                                    >
-
-                                        <input
-                                            type="text"
-                                            placeholder="Task Title"
-                                            onChange={(e) =>
-                                                handleProjectFormChange(
-                                                    project._id,
-                                                    "title",
-                                                    e.target.value
-                                                )
-                                            }
-                                            className="border p-2 rounded-lg w-full"
-                                        />
-
-                                        <input
-                                            type="text"
-                                            placeholder="Description"
-                                            onChange={(e) =>
-                                                handleProjectFormChange(
-                                                    project._id,
-                                                    "description",
-                                                    e.target.value
-                                                )
-                                            }
-                                            className="border p-2 rounded-lg w-full"
-                                        />
-
-                                        <input
-                                            type="date"
-                                            onChange={(e) =>
-                                                handleProjectFormChange(
-                                                    project._id,
-                                                    "dueDate",
-                                                    e.target.value
-                                                )
-                                            }
-                                            className="border p-2 rounded-lg w-full"
-                                        />
-
-                                        <select
-                                            onChange={(e) =>
-                                                handleProjectFormChange(
-                                                    project._id,
-                                                    "priority",
-                                                    e.target.value
-                                                )
-                                            }
-                                            className="border p-2 rounded-lg w-full"
-                                        >
-
-                                            <option value="Low">
-                                                Low
-                                            </option>
-
-                                            <option value="Medium">
-                                                Medium
-                                            </option>
-
-                                            <option value="High">
-                                                High
-                                            </option>
-
-                                        </select>
-
-                                        {/* Assign Member */}
-
-                                        <select
-                                            onChange={(e) =>
-                                                handleProjectFormChange(
-                                                    project._id,
-                                                    "assignedTo",
-                                                    e.target.value
-                                                )
-                                            }
-                                            className="border p-2 rounded-lg w-full"
-                                        >
-
-                                            <option value="">
-                                                Assign Member
-                                            </option>
-
-                                            {project.members.map((member) => (
-
-                                                <option
-                                                    key={member._id}
-                                                    value={member._id}
-                                                >
-                                                    {member.name}
-                                                </option>
-
-                                            ))}
-
-                                        </select>
-
-                                        <button
-                                            type="submit"
-                                            className="bg-blue-600 text-white px-4 py-2 rounded-lg w-full"
-                                        >
-                                            Create Task
-                                        </button>
-
-                                    </form>
-
-                                </div>
-                                <div className="mt-6">
-
-                                    <h3 className="text-lg font-bold mb-3">
-                                        Project Tasks
-                                    </h3>
-
-                                    <div className="space-y-4">
-
-                                        {project.tasks?.map((task) => (
-
-                                            <div
-                                                key={task._id}
-                                                className="bg-gray-100 p-4 rounded-xl"
-                                            >
-
-                                                <h4 className="font-bold">
-                                                    {task.title}
-                                                </h4>
-
-                                                <p className="text-gray-600">
-                                                    {task.description}
-                                                </p>
-
-                                                <p className="mt-2">
-                                                    Assigned To:
-                                                    {" "}
-                                                    <span className="font-semibold">
-                                                        {task.assignedTo?.name}
-                                                    </span>
-                                                </p>
-
-                                                <p>
-                                                    Status:
-                                                    {" "}
-                                                    <span className="font-semibold">
-                                                        {task.status}
-                                                    </span>
-                                                </p>
-
-                                                <p>
-                                                    Priority:
-                                                    {" "}
-                                                    <span className="font-semibold">
-                                                        {task.priority}
-                                                    </span>
-                                                </p>
-
-                                            </div>
-
-                                        ))}
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                        ))}
-
-                    </div>
-
-                </div>
-
-                {/* Cards */}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-
-                    <div className="bg-white p-6 rounded-2xl shadow-md">
-
-                        <h3 className="text-lg font-semibold text-gray-600">
-                            Total Tasks
-                        </h3>
-
-                        <p className="text-4xl font-bold text-blue-600 mt-2">
-                            {dashboardData.totalTasks}
-                        </p>
-
-                    </div>
-
-                    <div className="bg-white p-6 rounded-2xl shadow-md">
-
-                        <h3 className="text-lg font-semibold text-gray-600">
+                        <p className="text-sm opacity-80">
                             Completed
-                        </h3>
+                        </p>
 
-                        <p className="text-4xl font-bold text-green-600 mt-2">
+                        <h2 className="text-5xl font-bold mt-2">
                             {dashboardData.completedTasks}
-                        </p>
+                        </h2>
 
                     </div>
 
-                    <div className="bg-white p-6 rounded-2xl shadow-md">
+                    <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white p-7 rounded-3xl shadow-xl hover:scale-105 transition duration-300">
 
-                        <h3 className="text-lg font-semibold text-gray-600">
-                            Pending
-                        </h3>
-
-                        <p className="text-4xl font-bold text-yellow-500 mt-2">
-                            {dashboardData.pendingTasks}
-                        </p>
-
-                    </div>
-
-                    <div className="bg-white p-6 rounded-2xl shadow-md">
-
-                        <h3 className="text-lg font-semibold text-gray-600">
+                        <p className="text-sm opacity-80">
                             Overdue
-                        </h3>
-
-                        <p className="text-4xl font-bold text-red-500 mt-2">
-                            {dashboardData.overdueTasks}
                         </p>
+
+                        <h2 className="text-5xl font-bold mt-2">
+                            {dashboardData.overdueTasks}
+                        </h2>
+
+                    </div>
+
+                    <div className="bg-gradient-to-r from-purple-500 to-violet-600 text-white p-7 rounded-3xl shadow-xl hover:scale-105 transition duration-300">
+
+                        <p className="text-sm opacity-80">
+                            Team Members
+                        </p>
+
+                        <h2 className="text-5xl font-bold mt-2">
+                            {users.length}
+                        </h2>
 
                     </div>
 
                 </div>
-                <div className="bg-white p-6 rounded-2xl shadow-md mt-8">
 
-                    <h2 className="text-2xl font-bold mb-4">
-                        Tasks Per User
-                    </h2>
+                {/* Tasks Per User */}
 
-                    <div className="space-y-3">
+                <div className="bg-white rounded-3xl shadow-lg p-8 mb-10 border border-gray-200">
+
+                    <div className="flex justify-between items-center mb-6">
+
+                        <h2 className="text-3xl font-bold text-gray-800">
+                            Tasks Per User
+                        </h2>
+
+                    </div>
+
+                    <div className="space-y-4">
 
                         {dashboardData.tasksPerUser?.map(
                             (user, index) => (
 
                                 <div
                                     key={index}
-                                    className="flex justify-between bg-gray-100 p-3 rounded-lg"
+                                    className="flex justify-between items-center bg-gray-50 border border-gray-100 p-5 rounded-2xl hover:shadow-md transition"
                                 >
 
-                                    <span className="font-semibold">
-                                        {user.name}
-                                    </span>
+                                    <div>
 
-                                    <span>
-                                        {user.totalTasks} Tasks
-                                    </span>
+                                        <h3 className="font-semibold text-lg text-gray-800">
+                                            {user.name}
+                                        </h3>
+
+                                        <p className="text-gray-500 text-sm">
+                                            Assigned Tasks
+                                        </p>
+
+                                    </div>
+
+                                    <div className="bg-indigo-600 text-white px-5 py-2 rounded-full font-bold text-lg">
+                                        {user.totalTasks}
+                                    </div>
 
                                 </div>
 
@@ -739,18 +716,794 @@ function Dashboard() {
                     </div>
 
                 </div>
-                             
-                <div className="text-center py-6 text-gray-600">
 
-                    Team Task Manager © 2026
+                {/* Projects Section */}
+
+                <div
+                    id="projects"
+                    className="mb-8 flex justify-between items-center"
+                >
+
+                    <div>
+
+                        <h2 className="text-4xl font-bold text-gray-800">
+                            Projects
+                        </h2>
+
+                        <p className="text-gray-500 mt-1">
+                            Manage all active team projects.
+                        </p>
+
+                    </div>
 
                 </div>
+
+                {/* Create Project */}
+
+                <div className="bg-white rounded-3xl shadow-lg p-6 mb-10 border border-gray-200">
+
+                    <form
+                        onSubmit={createProject}
+                        className="flex flex-col md:flex-row gap-4"
+                    >
+
+                        <input
+                            type="text"
+                            name="title"
+                            placeholder="Enter Project Name"
+                            value={projectForm.title}
+                            onChange={handleProjectChange}
+                            className="flex-1 border border-gray-300 rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+
+                        <button
+                            type="submit"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-semibold transition"
+                        >
+                            Create Project
+                        </button>
+
+                    </form>
+
+                </div>
+
+                {/* Project Cards */}
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+
+                    {projects.map((project) => (
+
+                        <div
+                            key={project._id}
+                            className="bg-white rounded-3xl shadow-lg overflow-hidden border border-gray-200 hover:shadow-2xl transition duration-300"
+                        >
+
+                            {/* Header */}
+
+                            <div className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white p-6">
+
+                                <div className="flex justify-between items-start">
+
+                                    <div>
+
+                                        <h2 className="text-3xl font-bold mb-2">
+                                            {project.title}
+                                        </h2>
+
+                                        <p className="text-sm opacity-80">
+                                            Team Collaboration Workspace
+                                        </p>
+
+                                    </div>
+
+                                    <button
+                                        onClick={() => {
+
+                                            const confirmDelete =
+                                                window.confirm(
+                                                    "Delete this project?"
+                                                );
+
+                                            if (confirmDelete) {
+                                                deleteProject(project._id);
+                                            }
+
+                                        }}
+                                        className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl transition"
+                                    >
+                                        Delete
+                                    </button>
+
+                                </div>
+
+                            </div>
+
+                            {/* Content */}
+
+                            <div className="p-6">
+
+                                {/* Members */}
+
+                                <div className="mb-8">
+
+                                    <h3 className="text-xl font-bold mb-4 text-gray-800">
+                                        Team Members
+                                    </h3>
+
+                                    <div className="space-y-3">
+
+                                        {project.members.map((member) => (
+
+                                            <div
+                                                key={member._id}
+                                                className="flex justify-between items-center bg-indigo-50 border border-indigo-100 px-4 py-3 rounded-2xl"
+                                            >
+
+                                                <div>
+
+                                                    <p className="font-semibold text-gray-800">
+                                                        {member.name}
+                                                    </p>
+
+                                                    <p className="text-sm text-gray-500">
+                                                        {member.email}
+                                                    </p>
+
+                                                </div>
+
+                                                <button
+                                                    onClick={() =>
+                                                        removeMember(
+                                                            project._id,
+                                                            member._id
+                                                        )
+                                                    }
+                                                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl transition"
+                                                >
+                                                    Remove
+                                                </button>
+
+                                            </div>
+
+                                        ))}
+
+                                    </div>
+
+                                </div>
+                                
+                                {/* Project Stats */}
+
+                                <div className="grid grid-cols-2 gap-4 mt-6">
+
+                                    <div className="bg-gray-50 p-4 rounded-2xl text-center">
+
+                                        <p className="text-sm text-gray-500">
+                                            Members
+                                        </p>
+
+                                        <h3 className="text-3xl font-bold text-indigo-600">
+                                            {project.members.length}
+                                        </h3>
+
+                                    </div>
+
+                                    <div className="bg-gray-50 p-4 rounded-2xl text-center">
+
+                                        <p className="text-sm text-gray-500">
+                                            Tasks
+                                        </p>
+
+                                        <h3 className="text-3xl font-bold text-green-600">
+                                            {project.tasks?.length || 0}
+                                        </h3>
+
+                                    </div>
+
+                                </div>
+                                {/* Progress */}
+
+                                <div className="mt-6">
+
+                                    <div className="flex justify-between mb-2">
+
+                                        <span className="text-sm font-medium text-gray-600">
+                                            Progress
+                                        </span>
+
+                                        <span className="text-sm font-semibold text-indigo-600">
+                                            70%
+                                        </span>
+
+                                    </div>
+
+                                    <div className="w-full bg-gray-200 rounded-full h-3">
+
+                                        <div
+                                            className="bg-indigo-600 h-3 rounded-full"
+                                            style={{ width: "70%" }}
+                                        >
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                                <button
+                                    onClick={() => {
+
+                                        setSelectedProject(project);
+
+                                        setActiveProjectId(project._id);
+
+                                    }}
+                                    className="w-full mt-8 bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-semibold transition"
+                                >
+                                    Open Project
+                                </button>
+                                
+                            </div>
+
+                        </div>
+
+                    ))}
+
+                </div>
+                {/* Project Modal */}
+
+                {selectedProject && (
+
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
+
+                        <div className="bg-white w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-3xl shadow-2xl p-8 relative">
+
+                            {/* Close Button */}
+
+                            <button
+                                onClick={() =>
+                                    setSelectedProject(null)
+                                }
+                                className="absolute top-5 right-5 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl"
+                            >
+                                Close
+                            </button>
+
+                            {/* Project Title */}
+
+                            <div className="mb-10">
+
+                                <h1 className="text-4xl font-bold text-gray-800 mb-2">
+                                    {selectedProject.title}
+                                </h1>
+
+                                <p className="text-gray-500">
+                                    Project Workspace Management
+                                </p>
+
+                            </div>
+
+                            {/* Members */}
+
+                            <div className="mb-10">
+
+                                <h2 className="text-2xl font-bold mb-5 text-gray-800">
+                                    Team Members
+                                </h2>
+
+                                <div className="space-y-4">
+
+                                    {selectedProject.members.map((member) => (
+
+                                        <div
+                                            key={member._id}
+                                            className="flex justify-between items-center bg-indigo-50 border border-indigo-100 px-5 py-4 rounded-2xl"
+                                        >
+
+                                            <div>
+
+                                                <p className="font-semibold text-lg">
+                                                    {member.name}
+                                                </p>
+
+                                                <p className="text-gray-500 text-sm">
+                                                    {member.email}
+                                                </p>
+
+                                            </div>
+
+                                            <button
+                                                onClick={() =>
+                                                    removeMember(
+                                                        selectedProject?._id,
+                                                        member._id
+                                                    )
+                                                }
+                                                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl"
+                                            >
+                                                Remove
+                                            </button>
+
+                                        </div>
+
+                                    ))}
+
+                                </div>
+
+                            </div>
+                            {/* Add Member */}
+
+                            <div className="mb-10">
+
+                                <h2 className="text-2xl font-bold mb-5 text-gray-800">
+                                    Add Member
+                                </h2>
+
+                                <div className="flex gap-4">
+
+                                    <select
+                                        value={
+                                            selectedMembers[
+                                                activeProjectId
+                                            ] || ""
+                                        }
+                                        onChange={(e) =>
+                                            setSelectedMembers({
+                                                ...selectedMembers,
+                                                [activeProjectId]:
+                                                    e.target.value
+                                            })
+                                        }
+                                        className="flex-1 border border-gray-300 rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    >
+
+                                        <option value="">
+                                            Select Member
+                                        </option>
+
+                                        {users.map((user) => (
+
+                                            <option
+                                                key={user._id}
+                                                value={user.email}
+                                            >
+                                                {user.name}
+                                            </option>
+
+                                        ))}
+
+                                    </select>
+
+                                    <button
+                                        onClick={addMember}
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 rounded-2xl font-semibold transition"
+                                    >
+                                        Add
+                                    </button>
+
+                                </div>
+
+                            </div>
+                            {/* Create Task */}
+
+                            <div className="mb-10">
+
+                                <h2 className="text-2xl font-bold mb-5 text-gray-800">
+                                    Create Task
+                                </h2>
+
+                                <form
+                                    onSubmit={(e) =>
+                                        createTask(
+                                            e,
+                                            activeProjectId
+                                        )
+                                    }
+                                    className="grid grid-cols-1 md:grid-cols-2 gap-5"
+                                >
+
+                                    <input
+                                        type="text"
+                                        name="title"
+                                        placeholder="Task Title"
+                                        value={
+                                            projectForms[
+                                                activeProjectId
+                                            ]?.title || ""
+                                        }
+                                        onChange={(e) =>
+                                            handleProjectFormChange(
+                                                e,
+                                                activeProjectId
+                                            )
+                                        }
+                                        className="border border-gray-300 rounded-2xl px-5 py-4"
+                                    />
+
+                                    <input
+                                        type="date"
+                                        name="dueDate"
+                                        value={
+                                            projectForms[
+                                                activeProjectId
+                                            ]?.dueDate || ""
+                                        }
+                                        onChange={(e) =>
+                                            handleProjectFormChange(
+                                                e,
+                                                activeProjectId
+                                            )
+                                        }
+                                        className="border border-gray-300 rounded-2xl px-5 py-4"
+                                    />
+
+                                    <textarea
+                                        name="description"
+                                        placeholder="Task Description"
+                                        value={
+                                            projectForms[
+                                                activeProjectId
+                                            ]?.description || ""
+                                        }
+                                        onChange={(e) =>
+                                            handleProjectFormChange(
+                                                e,
+                                                activeProjectId
+                                            )
+                                        }
+                                        className="md:col-span-2 border border-gray-300 rounded-2xl px-5 py-4"
+                                    />
+
+                                    <select
+                                        name="priority"
+                                        value={
+                                            projectForms[
+                                                activeProjectId
+                                            ]?.priority || "Low"
+                                        }
+                                        onChange={(e) =>
+                                            handleProjectFormChange(
+                                                e,
+                                                activeProjectId
+                                            )
+                                        }
+                                        className="border border-gray-300 rounded-2xl px-5 py-4"
+                                    >
+
+                                        <option value="Low">
+                                            Low
+                                        </option>
+
+                                        <option value="Medium">
+                                            Medium
+                                        </option>
+
+                                        <option value="High">
+                                            High
+                                        </option>
+
+                                    </select>
+
+                                    <select
+                                        name="assignedTo"
+                                        value={
+                                            projectForms[
+                                                activeProjectId
+                                            ]?.assignedTo || ""
+                                        }
+                                        onChange={(e) =>
+                                            handleProjectFormChange(
+                                                e,
+                                                activeProjectId
+                                            )
+                                        }
+                                        className="border border-gray-300 rounded-2xl px-5 py-4"
+                                    >
+
+                                        <option value="">
+                                            Assign Member
+                                        </option>
+
+                                        {selectedProject.members.map(
+                                            (member) => (
+
+                                                <option
+                                                    key={member._id}
+                                                    value={member._id}
+                                                >
+                                                    {member.name}
+                                                </option>
+
+                                            )
+                                        )}
+
+                                    </select>
+
+                                    <button
+                                        type="submit"
+                                        className="md:col-span-2 bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-semibold transition"
+                                    >
+                                        Create Task
+                                    </button>
+
+                                </form>
+
+                            </div>
+                        {/* Kanban Board */}
+
+                        <div>
+
+                            <h2 className="text-3xl font-bold mb-8 text-gray-800">
+                                Project Tasks
+                            </h2>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                                {/* To Do */}
+
+                                <div className="bg-gray-100 rounded-3xl p-5">
+
+                                    <h3 className="text-xl font-bold mb-5 text-gray-700">
+                                        To Do
+                                    </h3>
+
+                                    <div className="space-y-4">
+
+                                        {selectedProject.tasks
+                                            ?.filter(
+                                                (task) =>
+                                                    task.status === "To Do"
+                                            )
+                                            .map((task) => (
+
+                                                <div
+                                                    key={task._id}
+                                                    className="bg-white rounded-2xl p-5 shadow hover:shadow-lg transition"
+                                                >
+
+                                                    <h4 className="text-lg font-bold text-gray-800">
+                                                        {task.title}
+                                                    </h4>
+
+                                                    <p className="text-sm text-gray-500 mt-2">
+                                                        {task.description}
+                                                    </p>
+
+                                                    <div className="mt-4 flex justify-between items-center">
+
+                                                        <span className="text-sm font-semibold text-indigo-600">
+                                                            {task.assignedTo?.name}
+                                                        </span>
+
+                                                        <div className="flex gap-2">
+
+                                                            <select
+                                                                value={task.status}
+                                                                onChange={(e) =>
+                                                                    updateTaskStatus(
+                                                                        task._id,
+                                                                        e.target.value
+                                                                    )
+                                                                }
+                                                                className="bg-gray-200 rounded-xl px-3 py-1 text-sm"
+                                                            >
+
+                                                                <option value="To Do">
+                                                                    To Do
+                                                                </option>
+
+                                                                <option value="In Progress">
+                                                                    In Progress
+                                                                </option>
+
+                                                                <option value="Done">
+                                                                    Done
+                                                                </option>
+
+                                                            </select>
+
+                                                            <button
+                                                                onClick={() =>
+                                                                    deleteTask(task._id)
+                                                                }
+                                                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-xl text-sm"
+                                                            >
+                                                                Delete
+                                                            </button>
+
+                                                        </div>
+
+                                                    </div>
+
+                                                </div>
+
+                                            ))}
+
+                                    </div>
+
+                                </div>
+
+                                {/* In Progress */}
+
+                                <div className="bg-yellow-50 rounded-3xl p-5">
+
+                                    <h3 className="text-xl font-bold mb-5 text-yellow-700">
+                                        In Progress
+                                    </h3>
+
+                                    <div className="space-y-4">
+
+                                        {selectedProject.tasks
+                                            ?.filter(
+                                                (task) =>
+                                                    task.status ===
+                                                    "In Progress"
+                                            )
+                                            .map((task) => (
+
+                                                <div
+                                                    key={task._id}
+                                                    className="bg-white rounded-2xl p-5 shadow hover:shadow-lg transition"
+                                                >
+
+                                                    <h4 className="text-lg font-bold text-gray-800">
+                                                        {task.title}
+                                                    </h4>
+
+                                                    <p className="text-sm text-gray-500 mt-2">
+                                                        {task.description}
+                                                    </p>
+
+                                                    <div className="mt-4 flex justify-between items-center">
+
+                                                        <span className="text-sm font-semibold text-indigo-600">
+                                                            {task.assignedTo?.name}
+                                                        </span>
+
+                                                        <div className="flex gap-2">
+
+                                                            <select
+                                                                value={task.status}
+                                                                onChange={(e) =>
+                                                                    updateTaskStatus(
+                                                                        task._id,
+                                                                        e.target.value
+                                                                    )
+                                                                }
+                                                                className="bg-gray-200 rounded-xl px-3 py-1 text-sm"
+                                                            >
+
+                                                                <option value="To Do">
+                                                                    To Do
+                                                                </option>
+
+                                                                <option value="In Progress">
+                                                                    In Progress
+                                                                </option>
+
+                                                                <option value="Done">
+                                                                    Done
+                                                                </option>
+
+                                                            </select>
+
+                                                            <button
+                                                                onClick={() =>
+                                                                    deleteTask(task._id)
+                                                                }
+                                                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-xl text-sm"
+                                                            >
+                                                                Delete
+                                                            </button>
+
+                                                        </div>
+
+                                                    </div>
+
+                                                </div>
+
+                                            ))}
+
+                                    </div>
+
+                                </div>
+
+                                {/* Done */}
+
+                                <div className="bg-green-50 rounded-3xl p-5">
+
+                                    <h3 className="text-xl font-bold mb-5 text-green-700">
+                                        Done
+                                    </h3>
+
+                                    <div className="space-y-4">
+
+                                        {selectedProject.tasks
+                                            ?.filter(
+                                                (task) =>
+                                                    task.status === "Done"
+                                            )
+                                            .map((task) => (
+
+                                                <div
+                                                    key={task._id}
+                                                    className="bg-white rounded-2xl p-5 shadow hover:shadow-lg transition"
+                                                >
+
+                                                    <h4 className="text-lg font-bold text-gray-800">
+                                                        {task.title}
+                                                    </h4>
+
+                                                    <p className="text-sm text-gray-500 mt-2">
+                                                        {task.description}
+                                                    </p>
+
+                                                    <div className="mt-4 flex justify-between items-center">
+
+                                                        <span className="text-sm font-semibold text-indigo-600">
+                                                            {task.assignedTo?.name}
+                                                        </span>
+
+                                                        <div className="flex gap-2">
+
+                                                            <select
+                                                                value={task.status}
+                                                                onChange={(e) =>
+                                                                    updateTaskStatus(
+                                                                        task._id,
+                                                                        e.target.value
+                                                                    )
+                                                                }
+                                                                className="bg-gray-200 rounded-xl px-3 py-1 text-sm"
+                                                            >
+
+                                                                <option value="To Do">
+                                                                    To Do
+                                                                </option>
+
+                                                                <option value="In Progress">
+                                                                    In Progress
+                                                                </option>
+
+                                                                <option value="Done">
+                                                                    Done
+                                                                </option>
+
+                                                            </select>
+
+                                                            <button
+                                                                onClick={() =>
+                                                                    deleteTask(task._id)
+                                                                }
+                                                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-xl text-sm"
+                                                            >
+                                                                Delete
+                                                            </button>
+
+                                                        </div>
+
+                                                    </div>
+
+                                                </div>
+
+                                            ))}
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        </div>
+
+                    </div>
+
+                )}
 
             </div>
 
         </div>
 
     );
-}
-
+};
 export default Dashboard;

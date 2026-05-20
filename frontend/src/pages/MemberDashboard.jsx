@@ -1,9 +1,29 @@
+import {
+    FaTasks,
+    FaSignOutAlt,
+    FaProjectDiagram
+} from "react-icons/fa";
 import { useEffect, useState } from "react";
 
 import API from "../services/api";
+import {
+    useNavigate
+} from "react-router-dom";
+import { toast } from "react-toastify";
 
 function MemberDashboard() {
 
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+
+        localStorage.removeItem("token");
+
+        localStorage.removeItem("user");
+
+        navigate("/login");
+
+    };
     const user = JSON.parse(
         localStorage.getItem("user")
     );
@@ -12,14 +32,12 @@ function MemberDashboard() {
 
     const [projects, setProjects] = useState([]);
 
-    useEffect(() => {
+    const fetchProjects = async () => {
 
-        const fetchProjects = async () => {
+        try {
 
-            try {
-
-                // Get assigned projects
-                const projectResponse = await API.get(
+            const projectResponse =
+                await API.get(
                     "/projects",
                     {
                         headers: {
@@ -28,50 +46,55 @@ function MemberDashboard() {
                     }
                 );
 
-                // Fetch tasks for each project
-                const projectsWithTasks =
-                    await Promise.all(
+            const projectsWithTasks =
+                await Promise.all(
 
-                        projectResponse.data.map(
-                            async (project) => {
+                    projectResponse.data.map(
+                        async (project) => {
 
-                                const taskResponse =
-                                    await API.get(
-                                        `/tasks/project/${project._id}`,
-                                        {
-                                            headers: {
-                                                Authorization: token
-                                            }
+                            const taskResponse =
+                                await API.get(
+                                    `/tasks/project/${project._id}`,
+                                    {
+                                        headers: {
+                                            Authorization: token
                                         }
-                                    );
+                                    }
+                                );
 
-                                return {
+                            return {
 
-                                    ...project,
+                                ...project,
 
-                                    tasks:
-                                        taskResponse.data
+                                tasks:
+                                    taskResponse.data
 
-                                };
+                            };
 
-                            }
-                        )
+                        }
+                    )
 
-                    );
+                );
 
-                setProjects(projectsWithTasks);
+            setProjects(projectsWithTasks);
 
-            } catch (error) {
+        } catch (error) {
 
-                console.log(error);
+            toast.error(
+                error.response?.data?.message ||
+                "Something went wrong"
+            );
 
-            }
+        }
 
-        };
+    };
+
+    useEffect(() => {
 
         fetchProjects();
 
     }, []);
+
 
     const updateTaskStatus = async (
         taskId,
@@ -90,26 +113,81 @@ function MemberDashboard() {
                 }
             );
 
-            setTasks((prevTasks) =>
-                prevTasks.map((task) =>
-                    task._id === taskId
-                        ? { ...task, status }
-                        : task
-                )
+            toast.success(
+                "✅ Task Status Updated"
             );
+
+            await fetchProjects();
 
         } catch (error) {
 
-            console.log(error);
+            toast.error(
+                "❌ Failed To Update Status"
+            );
 
         }
 
     };
-
     return (
 
-        <div className="min-h-screen bg-linear-to-r from-green-100 to-blue-100 p-6">
+        <div className="flex min-h-screen bg-gray-100">
+            {/* Sidebar */}
 
+            <div className="w-64 bg-indigo-900 text-white p-6 shadow-xl">
+
+                <h1 className="text-3xl font-bold mb-10">
+                    Member Panel
+                </h1>
+
+                <div className="space-y-6">
+
+                    <button
+                        onClick={() =>
+                            document.getElementById("projects")
+                            .scrollIntoView({
+                                behavior: "smooth"
+                            })
+                        }
+                        className="flex items-center gap-3 hover:text-yellow-300"
+                    >
+
+                        <FaProjectDiagram />
+
+                        Projects
+
+                    </button>
+
+                    <button
+                        onClick={() =>
+                            document.getElementById("tasks")
+                            .scrollIntoView({
+                                behavior: "smooth"
+                            })
+                        }
+                        className="flex items-center gap-3 hover:text-yellow-300"
+                    >
+
+                        <FaTasks />
+
+                        Tasks
+
+                    </button>
+
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-3 hover:text-red-300"
+                    >
+
+                        <FaSignOutAlt />
+
+                        Logout
+
+                    </button>
+
+                </div>
+
+            </div>
+            <div className="flex-1 p-8 overflow-y-auto">
             <h1 className="text-3xl font-bold mb-2">
                 Member Dashboard
             </h1>
@@ -118,7 +196,8 @@ function MemberDashboard() {
                 Welcome {user?.name}
             </p>
 
-            <div className="space-y-8">
+            <div  id="projects"
+                className="space-y-8">
 
                 {projects.map((project) => (
 
@@ -139,7 +218,8 @@ function MemberDashboard() {
                             My Tasks
                         </h3>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div  id="tasks"
+                            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
                             {project.tasks?.map((task) => (
 
@@ -210,7 +290,8 @@ function MemberDashboard() {
             </div>
 
         </div>
-
+    
+    </div>
     );
 }
 

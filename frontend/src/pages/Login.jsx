@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import API from "../services/api";
+import { toast } from "react-toastify";
 
 function Login() {
 
@@ -25,7 +26,16 @@ function Login() {
     const handleSubmit = async (e) => {
 
         e.preventDefault();
+        if (
+            !formData.email ||
+            !formData.password
+        ) {
 
+            return toast.error(
+                "❌ Email and password required"
+            );
+
+        }
         try {
 
             const response = await API.post(
@@ -45,7 +55,7 @@ function Login() {
                 JSON.stringify(response.data.user)
             );
 
-            alert("Login successful");
+            toast.success("✅ Login Successful");
 
             if (response.data.user.role === "admin") {
 
@@ -59,7 +69,9 @@ function Login() {
 
         } catch (error) {
 
-            alert(error.response.data.message);
+        toast.error(
+            error.response.data.message
+        );
 
         }
 

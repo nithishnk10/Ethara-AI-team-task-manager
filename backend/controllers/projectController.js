@@ -1,4 +1,5 @@
 const Project = require("../models/Project");
+const Task = require("../models/Task");
 
 const createProject = async (req, res) => {
 
@@ -67,6 +68,7 @@ const getProjects = async (req, res) => {
     }
 
 };
+
 const addMemberToProject = async (req, res) => {
 
     try {
@@ -103,6 +105,16 @@ const addMemberToProject = async (req, res) => {
         }
 
         // Add member
+        const alreadyMember =
+            project.members.includes(user._id);
+
+        if (alreadyMember) {
+
+            return res.status(400).json({
+                message: "User already in project"
+            });
+
+        }
         project.members.push(user._id);
 
         await project.save();
@@ -152,9 +164,46 @@ const removeMemberFromProject = async (req, res) => {
     }
 
 };
+
+const deleteProject = async (
+    req,
+    res
+) => {
+
+    try {
+
+        // Delete all tasks related to project
+
+        await Task.deleteMany({
+            project: req.params.id
+        });
+
+        // Delete project
+
+        await Project.findByIdAndDelete(
+            req.params.id
+        );
+
+        res.status(200).json({
+            message:
+                "Project and tasks deleted successfully"
+        });
+
+    } catch (error) {
+
+        console.log(error);
+
+        res.status(500).json({
+            message: error.message
+        });
+
+    }
+
+};
 module.exports = {
     createProject,
     getProjects,
     addMemberToProject,
-    removeMemberFromProject
+    removeMemberFromProject,
+    deleteProject
 };
