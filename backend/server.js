@@ -26,15 +26,21 @@ mongoose.connect(process.env.MONGO_URI)
 
 
 const PORT = process.env.PORT || 5000;
+
 app.use(
     express.static(
         path.resolve(__dirname, "dist")
     )
 );
 
-app.use((req, res) => {
+// React frontend fallback
+app.get(/^\/(?!api).*/, (req, res) => {
     res.sendFile(
-        path.resolve(__dirname, "dist", "index.html")
+        path.resolve(
+            __dirname,
+            "dist",
+            "index.html"
+        )
     );
 });
 
